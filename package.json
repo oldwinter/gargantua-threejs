@@ -1,0 +1,13 @@
+{
+  "name": "gargantua-blackhole",
+  "version": "1.0.0",
+  "description": "Interstellar-style black hole ray tracing demo (three.js + WebGL)",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.180.0"
+  }
+}

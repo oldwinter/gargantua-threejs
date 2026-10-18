@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gargantua · 黑洞模拟</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.min.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<!-- 顶部标题 -->
+<header id="title">
+  <h1>GARGANTUA</h1>
+  <p>史瓦西黑洞 · 引力透镜光线追踪</p>
+</header>
+
+<!-- 底部提示 -->
+<footer id="hint">
+  <span>🖱 拖拽旋转</span><i>·</i><span>滚轮缩放</span><i>·</i><span>H 隐藏面板</span>
+</footer>
+
+<!-- FPS -->
+<div id="fps"></div>
+
+<!-- 侧栏 -->
+<aside id="panel">
+  <div class="panel-head">
+    <span class="dot"></span> 参数控制台
+  </div>
+  <div class="presets" id="presets"></div>
+  <div id="groups"></div>
+  <div class="panel-foot">
+    <label class="chk"><input type="checkbox" id="autorotate"> 自动旋转</label>
+    <button id="resetview">重置视角</button>
+  </div>
+</aside>
+<button id="paneltoggle" title="收起/展开面板">⟨</button>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
