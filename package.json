@@ -4,10 +4,15 @@
   "description": "Interstellar-style black hole ray tracing demo (three.js + WebGL)",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:e2e": "e2e run"
   },
   "license": "ISC",
   "dependencies": {
     "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@e2e-dev/web": "0.16.0",
+    "e2e": "0.23.1"
   }
 }
