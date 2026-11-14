@@ -44,7 +44,9 @@ function fbmFactory(seed) {
 /* ================================================================
    程序化星空贴图（等距柱状投影，供光线弯曲后采样 → 天然带引力透镜）
 ================================================================ */
-function makeSkyTexture() {
+const nextFrame = () => new Promise((resolve) => { requestAnimationFrame(() => resolve()); });
+
+async function makeSkyTexture() {
   const W = 2048, H = 1024;
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
@@ -60,6 +62,7 @@ function makeSkyTexture() {
   })();
 
   for (let y = 0; y < H; y++) {
+    if (y % 64 === 0) await nextFrame();
     const v = (y + 0.5) / H;
     const theta = v * Math.PI;
     const st = Math.sin(theta), ct = Math.cos(theta);
@@ -114,6 +117,7 @@ function makeSkyTexture() {
   };
 
   for (let i = 0; i < 5200; i++) {
+    if (i % 800 === 0) await nextFrame();
     const z = 1 - 2 * rnd(), ph = rnd() * 2 * Math.PI;
     const rr = Math.sqrt(1 - z * z);
     const dx = rr * Math.cos(ph), dy = z, dz = rr * Math.sin(ph);
@@ -182,7 +186,22 @@ function makeDiskTexture() {
    渲染器 / 场景
 ================================================================ */
 const canvas = document.getElementById('view');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+const bootStatus = document.getElementById('boot-status');
+const bootSub = document.getElementById('boot-sub');
+if (matchMedia('(max-width: 760px)').matches) {
+  bootSub.textContent = '拖动画面可以旋转。点右上角打开参数。';
+}
+await nextFrame();
+
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+} catch (err) {
+  bootStatus.textContent = '这个浏览器没能启动 WebGL';
+  bootSub.textContent = '请换用桌面版 Chrome、Edge 或 Firefox 后再打开。';
+  document.querySelector('#boot .boot-spin')?.remove();
+  throw err;
+}
 renderer.setPixelRatio(1);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -196,7 +215,10 @@ viewCam.position.copy(CAM_HOME);
 const quadScene = new THREE.Scene();
 const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-const skyTex = makeSkyTexture();
+bootStatus.textContent = '正在生成星空';
+const skyTex = await makeSkyTexture();
+bootStatus.textContent = '正在生成吸积盘';
+await nextFrame();
 const diskTex = makeDiskTexture();
 
 const uniforms = {
@@ -435,8 +457,19 @@ function applyParam(key) {
   const v = params[key];
   switch (key) {
     case 'mass':       uniforms.uRs.value = v; break;
-    case 'diskIn':     uniforms.uDiskIn.value = Math.min(v, params.diskOut - 0.4); break;
-    case 'diskOut':    uniforms.uDiskOut.value = Math.max(v, params.diskIn + 0.4); break;
+    case 'diskIn':
+    case 'diskOut': {
+      const gap = 0.4;
+      if (params.diskIn > params.diskOut - gap) {
+        if (key === 'diskIn') params.diskOut = Math.min(16, Math.round((params.diskIn + gap) * 10) / 10);
+        else params.diskIn = Math.max(1.6, Math.round((params.diskOut - gap) * 20) / 20);
+      }
+      uniforms.uDiskIn.value = params.diskIn;
+      uniforms.uDiskOut.value = params.diskOut;
+      ctlRefs.diskIn?.();
+      ctlRefs.diskOut?.();
+      break;
+    }
     case 'diskBright': uniforms.uDiskBright.value = v; break;
     case 'tempShift':  uniforms.uTempShift.value = v; break;
     case 'doppler':    uniforms.uDoppler.value = v; break;
@@ -465,6 +498,10 @@ for (const g of GROUPS) {
   const div = document.createElement('div');
   div.className = 'group';
   div.innerHTML = `<div class="group-title">${g.title}</div>`;
+  if (g.items.some((it) => it.key === 'resScale')) {
+    div.id = 'render-group';
+    div.insertAdjacentHTML('beforeend', '<p class="group-note">如果卡顿，先降渲染分辨率，再降光线步进数。</p>');
+  }
   for (const it of g.items) {
     const ctl = document.createElement('div');
     ctl.className = 'ctl';
@@ -473,6 +510,7 @@ for (const g of GROUPS) {
       <input type="range" min="${it.min}" max="${it.max}" step="${it.step}">`;
     const input = ctl.querySelector('input');
     const val = ctl.querySelector('.val');
+    input.setAttribute('aria-label', it.label);
     const refresh = () => { input.value = params[it.key]; val.textContent = (+params[it.key]).toFixed(it.fmt); };
     input.addEventListener('input', () => { params[it.key] = +input.value; applyParam(it.key); refresh(); markDirty(); });
     refresh();
@@ -507,10 +545,30 @@ const toggle = document.getElementById('paneltoggle');
 function setPanel(hidden) {
   panel.classList.toggle('hidden', hidden);
   toggle.classList.toggle('shifted', hidden);
+  document.body.classList.toggle('panel-closed', hidden);
+  const narrow = matchMedia('(max-width: 760px)').matches;
+  const coarse = matchMedia('(pointer: coarse)').matches;
+  toggle.textContent = narrow ? (hidden ? '参数' : '关闭') : '⟨';
+  toggle.setAttribute('aria-expanded', String(!hidden));
+  toggle.setAttribute('aria-label', hidden ? '展开参数' : '收起参数');
+  const hintText = document.getElementById('hint-text');
+  if (narrow && coarse) hintText.textContent = '拖动旋转 · 双指缩放';
+  else if (narrow) hintText.textContent = '拖拽旋转 · 滚轮缩放';
+  else hintText.textContent = hidden
+    ? '拖拽旋转 · 滚轮缩放 · H 显示面板'
+    : '拖拽旋转 · 滚轮缩放 · H 隐藏面板';
+  resize();
 }
 toggle.addEventListener('click', () => setPanel(!panel.classList.contains('hidden')));
 addEventListener('keydown', e => {
+  if (e.repeat) return;
   if (e.key === 'h' || e.key === 'H') setPanel(!panel.classList.contains('hidden'));
+});
+setPanel(matchMedia('(max-width: 760px)').matches);
+let narrowNow = matchMedia('(max-width: 760px)').matches;
+matchMedia('(max-width: 760px)').addEventListener('change', (e) => {
+  narrowNow = e.matches;
+  setPanel(e.matches);
 });
 document.getElementById('resetview').addEventListener('click', () => {
   viewCam.position.copy(CAM_HOME);
@@ -523,27 +581,48 @@ autoRot.addEventListener('change', () => { controls.autoRotate = autoRot.checked
    尺寸 / 主循环
 ================================================================ */
 function resize() {
+  const rect = canvas.getBoundingClientRect();
   const s = params.resScale;
-  const w = Math.max(2, Math.floor(innerWidth * s));
-  const h = Math.max(2, Math.floor(innerHeight * s));
+  const w = Math.max(2, Math.floor(rect.width * s));
+  const h = Math.max(2, Math.floor(rect.height * s));
   renderer.setSize(w, h, false);
   composer.setSize(w, h);
   bloomPass.setSize(w, h);
-  canvas.style.width = '100%';
-  canvas.style.height = '100%';
-  uniforms.uAspect.value = innerWidth / innerHeight;
-  viewCam.aspect = innerWidth / innerHeight;
+  const aspect = rect.width / Math.max(1, rect.height);
+  uniforms.uAspect.value = aspect;
+  viewCam.aspect = aspect;
   viewCam.updateProjectionMatrix();
 }
-addEventListener('resize', resize);
+addEventListener('resize', () => {
+  const next = matchMedia('(max-width: 760px)').matches;
+  if (next !== narrowNow) {
+    narrowNow = next;
+    setPanel(next);
+  } else {
+    resize();
+  }
+});
 
 const basis = new THREE.Matrix3();
 const fpsEl = document.getElementById('fps');
+const perfBtn = document.getElementById('perf');
 const clock = new THREE.Clock();
-let frames = 0, fpsTime = 0;
+let frames = 0, fpsTime = 0, lowStreak = 0, highStreak = 0, shown = false;
 
+perfBtn.addEventListener('click', () => {
+  setPanel(false);
+  const scroller = document.getElementById('groups');
+  const group = document.getElementById('render-group');
+  scroller.scrollTop += group.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+  group.classList.add('pulse');
+  setTimeout(() => group.classList.remove('pulse'), 1800);
+});
+
+bootStatus.textContent = '正在编译光线';
+await nextFrame();
 applyAll();
 resize();
+clock.getDelta();
 
 // 便于调试/脚本控制视角
 window.__demo = { viewCam, controls, params, uniforms };
@@ -566,10 +645,23 @@ function tick() {
   uniforms.uCamPos.value.copy(viewCam.position);
 
   composer.render();
+  if (!shown) {
+    shown = true;
+    const boot = document.getElementById('boot');
+    boot.classList.add('done');
+    const hideBoot = () => { boot.hidden = true; };
+    boot.addEventListener('transitionend', hideBoot, { once: true });
+    setTimeout(hideBoot, 700);
+  }
 
   frames++; fpsTime += dt;
   if (fpsTime > 0.5) {
-    fpsEl.textContent = `${Math.round(frames / fpsTime)} FPS · ${(params.resScale * 100) | 0}% · ${params.steps | 0} 步`;
+    const fps = Math.round(frames / fpsTime);
+    fpsEl.textContent = `${fps} FPS · ${(params.resScale * 100) | 0}% · ${params.steps | 0} 步`;
+    if (fps < 20) { lowStreak++; highStreak = 0; }
+    else if (fps >= 24) { highStreak++; lowStreak = 0; }
+    if (lowStreak >= 2) perfBtn.hidden = false;
+    if (highStreak >= 2) perfBtn.hidden = true;
     frames = 0; fpsTime = 0;
   }
 }

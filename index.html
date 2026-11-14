@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gargantua · 黑洞模拟</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='7' fill='%23000' stroke='%23ffb45e' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%23ffb45e' stroke-width='1' opacity='.7'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">
 {
@@ -17,6 +18,13 @@
 <body>
 <canvas id="view"></canvas>
 
+<div id="boot" role="status" aria-live="polite">
+  <div class="boot-spin" aria-hidden="true"></div>
+  <p class="boot-kicker">GARGANTUA</p>
+  <p id="boot-status">正在准备黑洞</p>
+  <p id="boot-sub">拖拽旋转，滚轮缩放。<br>右侧可以换预设，也可以降低清晰度。</p>
+</div>
+
 <!-- 顶部标题 -->
 <header id="title">
   <h1>GARGANTUA</h1>
@@ -25,7 +33,7 @@
 
 <!-- 底部提示 -->
 <footer id="hint">
-  <span>🖱 拖拽旋转</span><i>·</i><span>滚轮缩放</span><i>·</i><span>H 隐藏面板</span>
+  <span id="hint-text">拖拽旋转 · 滚轮缩放 · H 隐藏面板</span>
 </footer>
 
 <!-- FPS -->
@@ -40,10 +48,11 @@
   <div id="groups"></div>
   <div class="panel-foot">
     <label class="chk"><input type="checkbox" id="autorotate"> 自动旋转</label>
-    <button id="resetview">重置视角</button>
+    <button id="resetview" type="button">重置视角</button>
+    <button id="perf" type="button" hidden>画面偏慢，去调分辨率</button>
   </div>
 </aside>
-<button id="paneltoggle" title="收起/展开面板">⟨</button>
+<button id="paneltoggle" type="button" aria-controls="panel" aria-expanded="true" title="收起/展开面板">⟨</button>
 
 <script type="module" src="main.js"></script>
 </body>
